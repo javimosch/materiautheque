@@ -27,6 +27,10 @@ if [[ -n "${REGISTER_URL:-}" ]]; then
   $BKN kv set materiautheque.register_token "${REGISTER_TOKEN:?}" --description "greffe put_token" >/dev/null
   $BKN kv set materiautheque.register_public_url "${REGISTER_PUBLIC_URL:-$REGISTER_URL/ui}" --description "public explorer link shown on the page" >/dev/null
 fi
+if [[ -n "${REGISTER_TEST_URL:-}" ]]; then
+  $BKN kv set materiautheque.register_test_url "$REGISTER_TEST_URL" --description "greffe TEST node used by verify.sh" >/dev/null
+  $BKN kv set materiautheque.register_test_token "${REGISTER_TEST_TOKEN:?}" --description "greffe TEST put_token" >/dev/null
+fi
 $BKN store create materiautheque/items --normalize commune=trim >/dev/null 2>&1 || true
 $BKN store create materiautheque/proposals >/dev/null 2>&1 || true
 

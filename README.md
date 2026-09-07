@@ -42,6 +42,15 @@ Nœud validateur sur vps1 (`greffe-bauges.service`, données `/root/.greffe-baug
 `--ui --put-token`), relais sur mikavm3 (port 7421). Genèse dans `greffe/genesis.json`. Toute
 association du territoire peut rejoindre la fédération comme membre (`greffe grant member <pub>`).
 
+## Registre de test
+
+`bkn/verify.sh` joue le cycle complet (proposition → publication → registre → statut) sur le bkn
+vivant. Pour que le registre réel n'accumule pas d'objets de test, les actions admin de la suite
+portent `"register":"test"` et le hook les inscrit sur une fédération séparée
+(`coeur-des-bauges-test`, nœud sur vps1 port 7422, réglages kv `materiautheque.register_test_*`).
+Les trois « Tuiles terre cuite (verify) » présents dans le registre réel datent d'avant cette
+séparation ; un registre n'oublie pas, ils y restent, retirés.
+
 ## Décisions
 
 - **bkn plutôt qu'un plugin Go** : zéro code serveur à redéployer ; le backend entier est un hook,

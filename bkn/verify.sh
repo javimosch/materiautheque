@@ -6,7 +6,8 @@ H="$BKN_URL/v1/hooks/materiautheque"; PASS=0; FAIL=0
 chk() { if [ "$2" = "$3" ]; then PASS=$((PASS+1)); printf "   \033[32mok\033[0m   %-58s %s\n" "$1" "$2"; else FAIL=$((FAIL+1)); printf "   \033[31mFAIL\033[0m %-58s got %s want %s\n" "$1" "$2" "$3"; fi; }
 j() { python3 -c "import sys,json; d=json.load(sys.stdin); print(eval(sys.argv[1]))" "$1"; }
 post() { curl -s -H 'Content-Type: application/json' -X POST "$H" -d "$1"; }
-apost() { curl -s -H 'Content-Type: application/json' -H "X-Admin-Token: $MAT_ADMIN_TOKEN" -X POST "$H" -d "$1"; }
+# admin actions of the suite carry register:"test" so their entries land on the TEST federation
+apost() { curl -s -H 'Content-Type: application/json' -H "X-Admin-Token: $MAT_ADMIN_TOKEN" -X POST "$H" -d "$(echo "$1" | sed 's/^{/{"register":"test",/')"; }
 echo "=== materiautheque on $BKN_URL ==="
 chk "public list answers" "$(curl -s "$H" | j "d['ok']")" "True"
 chk "meta lists the communes" "$(curl -s "$H?view=meta" | j "'Le Châtelard' in d['communes']")" "True"
@@ -18,7 +19,7 @@ chk "a proposal is not public before moderation" "$(curl -s "$H" | j "any(i.get(
 chk "moderation without token is refused" "$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -X POST "$H" -d "{\"action\":\"approve\",\"id\":\"$ID\"}")" "401"
 AP=$(apost "{\"action\":\"approve\",\"id\":\"$ID\"}"); IID=$(echo "$AP" | j "d['id']")
 chk "approval publishes the item" "$(curl -s "$H" | j "any(i['id']=='$IID' for i in d['items'])")" "True"
-chk "approval is recorded in the public register" "$(echo "$AP" | j "'id' in d['register']")" "True"
+chk "approval is recorded in the (test) register" "$(echo "$AP" | j "'id' in d['register']")" "True"
 chk "admin edit of the nickname records a correction" "$(apost "{\"action\":\"edit\",\"id\":\"$IID\",\"fields\":{\"nickname\":\"Testeur\"}}" | j "'id' in d['register']")" "True"
 chk "the nickname is public" "$(curl -s "$H" | j "[i['nickname'] for i in d['items'] if i['id']=='$IID'][0]")" "Testeur"
 chk "status change to 'parti' is recorded" "$(apost "{\"action\":\"status\",\"id\":\"$IID\",\"status\":\"parti\"}" | j "'id' in d['register']")" "True"
