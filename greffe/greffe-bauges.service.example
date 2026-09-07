@@ -1,0 +1,20 @@
+# /etc/systemd/system/greffe.service — a greffe node (validator or full node)
+[Unit]
+Description=greffe — transparent append-only registry for a federation of associations
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/root/bin/greffe serve --data /root/.greffe
+Restart=always
+RestartSec=5
+# Gentle on the VM: a node idles at ~6 MB RSS; the ceiling is a safety net, not a budget.
+MemoryMax=96M
+MemoryHigh=64M
+CPUWeight=50
+Nice=10
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
