@@ -116,7 +116,8 @@ function setStatus(req) {
 }
 
 // edit: moderation may correct the public fields of a published item (typos, a nickname added
-// after the fact). Not recorded in the register: the register tracks the object's life, not its wording.
+// after the fact). Wording changes are not recorded; a nickname change is, as item.correct,
+// because 'by' is part of the register entry.
 var EDITABLE = ['title', 'description', 'category', 'commune', 'mode', 'quantity', 'contact', 'photo_url', 'nickname'];
 var LIMITS = { title: 80, description: 1000, quantity: 40, contact: 120, photo_url: 500, nickname: 40 };
 function edit(req) {
@@ -135,7 +136,12 @@ function edit(req) {
   if (Object.keys(patch).length === 0) return { status: 422, body: { ok: false, error: 'nothing to edit' } };
   patch.edited_at = bkn.now();
   bkn.store.patch(ITEMS, it.id, patch);
-  return { status: 200, body: { ok: true, id: it.id, patched: Object.keys(patch) } };
+  // the nickname is the one edited field that is on the register ('by'): record a correction
+  var reg = { skipped: 'no register field changed' };
+  if (patch.nickname !== undefined && patch.nickname !== (it.nickname || '')) {
+    reg = register('item.correct', { id: it.id, corrects: it.register_id || '', by: patch.nickname, note: 'nickname changed' });
+  }
+  return { status: 200, body: { ok: true, id: it.id, patched: Object.keys(patch), register: reg } };
 }
 
 function remove(req) {

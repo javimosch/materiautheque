@@ -19,7 +19,7 @@ chk "moderation without token is refused" "$(curl -s -o /dev/null -w '%{http_cod
 AP=$(apost "{\"action\":\"approve\",\"id\":\"$ID\"}"); IID=$(echo "$AP" | j "d['id']")
 chk "approval publishes the item" "$(curl -s "$H" | j "any(i['id']=='$IID' for i in d['items'])")" "True"
 chk "approval is recorded in the public register" "$(echo "$AP" | j "'id' in d['register']")" "True"
-chk "admin edit sets a nickname" "$(apost "{\"action\":\"edit\",\"id\":\"$IID\",\"fields\":{\"nickname\":\"Testeur\"}}" | j "d['ok']")" "True"
+chk "admin edit of the nickname records a correction" "$(apost "{\"action\":\"edit\",\"id\":\"$IID\",\"fields\":{\"nickname\":\"Testeur\"}}" | j "'id' in d['register']")" "True"
 chk "the nickname is public" "$(curl -s "$H" | j "[i['nickname'] for i in d['items'] if i['id']=='$IID'][0]")" "Testeur"
 chk "status change to 'parti' is recorded" "$(apost "{\"action\":\"status\",\"id\":\"$IID\",\"status\":\"parti\"}" | j "'id' in d['register']")" "True"
 chk "honeypot looks accepted" "$(post '{"action":"propose","website":"http://spam","item":{"title":"spam"}}' | j "d['ok']")" "True"
