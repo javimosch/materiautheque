@@ -29,6 +29,7 @@ function main(d) {
   if (req.action === 'reject') return reject(req);
   if (req.action === 'status') return setStatus(req);
   if (req.action === 'remove') return remove(req);
+  if (req.action === 'edit') return edit(req);
   return { status: 400, body: { ok: false, error: 'unknown action' } };
 }
 
@@ -59,7 +60,7 @@ function propose(req) {
   if (e) return { status: 422, body: { ok: false, error: e.error, field: e.field } };
   var clean = {
     title: str(f.title, 80), description: str(f.description, 1000), category: f.category, commune: f.commune,
-    mode: f.mode, quantity: str(f.quantity, 40), contact: str(f.contact, 120), photo_url: photoUrl(f.photo_url),
+    mode: f.mode, quantity: str(f.quantity, 40), contact: str(f.contact, 120), photo_url: photoUrl(f.photo_url), nickname: str(f.nickname, 40),
     status: 'pending', created_at: bkn.now()
   };
   var rec = bkn.store.put(PROPOSALS, clean);
@@ -84,12 +85,12 @@ function approve(req) {
   if (!p || p.status !== 'pending') return { status: 404, body: { ok: false, error: 'no such pending proposal' } };
   var item = {
     title: p.title, description: p.description, category: p.category, commune: p.commune, mode: p.mode,
-    quantity: p.quantity, contact: p.contact, photo_url: p.photo_url, status: 'disponible',
+    quantity: p.quantity, contact: p.contact, photo_url: p.photo_url, nickname: p.nickname || '', status: 'disponible',
     created_at: p.created_at, approved_at: bkn.now(), proposal_id: p.id
   };
   var rec = bkn.store.put(ITEMS, item);
   bkn.store.patch(PROPOSALS, p.id, { status: 'approved', item_id: rec.id });
-  var reg = register('item.add', { id: rec.id, title: rec.title, category: rec.category, commune: rec.commune, mode: rec.mode, quantity: rec.quantity });
+  var reg = register('item.add', { id: rec.id, title: rec.title, category: rec.category, commune: rec.commune, mode: rec.mode, quantity: rec.quantity, by: rec.nickname || '' });
   if (reg.id) bkn.store.patch(ITEMS, rec.id, { register_id: reg.id });
   bkn.events.emit('materiautheque', 'item.approved', { subject: rec.id, data: { register: reg } });
   return { status: 200, body: { ok: true, id: rec.id, register: reg } };
@@ -112,6 +113,29 @@ function setStatus(req) {
   var reg = register(kind, { id: it.id, title: it.title, status: req.status });
   bkn.events.emit('materiautheque', 'item.status', { subject: it.id, data: { status: req.status, register: reg } });
   return { status: 200, body: { ok: true, register: reg } };
+}
+
+// edit: moderation may correct the public fields of a published item (typos, a nickname added
+// after the fact). Not recorded in the register: the register tracks the object's life, not its wording.
+var EDITABLE = ['title', 'description', 'category', 'commune', 'mode', 'quantity', 'contact', 'photo_url', 'nickname'];
+var LIMITS = { title: 80, description: 1000, quantity: 40, contact: 120, photo_url: 500, nickname: 40 };
+function edit(req) {
+  var it = bkn.store.get(ITEMS, req.id || '');
+  if (!it) return { status: 404, body: { ok: false, error: 'no such item' } };
+  var patch = {};
+  var f = req.fields || {};
+  for (var i = 0; i < EDITABLE.length; i++) {
+    var k = EDITABLE[i];
+    if (f[k] === undefined) continue;
+    if (k === 'category' && CATEGORIES.indexOf(f[k]) < 0) return { status: 422, body: { ok: false, error: 'catégorie inconnue', field: k } };
+    if (k === 'commune' && COMMUNES.indexOf(f[k]) < 0) return { status: 422, body: { ok: false, error: 'commune inconnue', field: k } };
+    if (k === 'mode' && MODES.indexOf(f[k]) < 0) return { status: 422, body: { ok: false, error: 'don ou prêt', field: k } };
+    patch[k] = k === 'photo_url' ? photoUrl(f[k]) : (LIMITS[k] ? str(f[k], LIMITS[k]) : f[k]);
+  }
+  if (Object.keys(patch).length === 0) return { status: 422, body: { ok: false, error: 'nothing to edit' } };
+  patch.edited_at = bkn.now();
+  bkn.store.patch(ITEMS, it.id, patch);
+  return { status: 200, body: { ok: true, id: it.id, patched: Object.keys(patch) } };
 }
 
 function remove(req) {
