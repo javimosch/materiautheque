@@ -25,9 +25,9 @@ function main(d) {
   if (!req) return { status: 400, body: { ok: false, error: 'body is not JSON' } };
   if (req.action === 'propose') return propose(req);
   if (!isAdmin(d)) return { status: 401, body: { ok: false, error: 'admin token required' } };
-  // an admin may route an action's register entries to the TEST federation (verify runs),
-  // so the real register never accumulates test objects
-  REGISTER_TARGET = req.register === 'test' ? 'test' : 'live';
+  // an admin may ask an action NOT to touch the register (register:"skip") — used by verify.sh
+  // so the real register never accumulates test objects; the reply says {skipped} explicitly
+  REGISTER_SKIP = req.register === 'skip';
   if (req.action === 'approve') return approve(req);
   if (req.action === 'reject') return reject(req);
   if (req.action === 'status') return setStatus(req);
@@ -157,11 +157,11 @@ function remove(req) {
 
 // ---- the public register (greffe) ----
 
-var REGISTER_TARGET = 'live';
+var REGISTER_SKIP = false;
 function register(kind, payload) {
-  var suffix = REGISTER_TARGET === 'test' ? '_test' : '';
-  var url = bkn.kv.get('materiautheque.register' + suffix + '_url');
-  var tok = bkn.kv.get('materiautheque.register' + suffix + '_token');
+  if (REGISTER_SKIP) return { skipped: 'by request (test run)' };
+  var url = bkn.kv.get('materiautheque.register_url');
+  var tok = bkn.kv.get('materiautheque.register_token');
   if (!url || !tok) return { skipped: 'register not configured' };
   try {
     var r = bkn.http.fetch(url + '/put', {

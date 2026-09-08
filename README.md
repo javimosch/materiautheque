@@ -11,9 +11,10 @@ comme registre public infalsifiable.
 - **Backend** : un seul hook bkn (`bkn/hook.js`) — liste publique, proposition anonyme, modération
   par jeton (`X-Admin-Token`), miroir vers le registre. Deux collections admin-only
   (`materiautheque/items`, `materiautheque/proposals`) ; le hook est la seule surface publique.
-- **Registre** : chaque publication, prêt, départ ou retrait est inscrit dans la chaîne
-  `coeur-des-bauges` (greffe) avec la clé du serveur enbauges, via `POST /put`. Explorateur public :
-  <https://registre-bauges.vps1.intrane.fr/ui>. Les contacts n'y figurent jamais.
+- **Registre** : chaque publication, prêt, départ, retrait ou correction est inscrit dans la chaîne
+  `coeur-des-bauges` (greffe) via `POST /put`. Deux validateurs (vps1 et mikavm3), chaque nœud refuse
+  une réécriture de l'historique établi (`max_reorg`). Servi sous <https://enbauges.fr/registre>
+  (explorateur brut : `/registre/ui`). Les contacts n'y figurent jamais.
 
 ## Flux
 
@@ -38,18 +39,19 @@ cp web/materiautheque.html ../enbauges-go/web/pages/ && (cd ../enbauges-go && ./
 
 ## Registre greffe
 
-Nœud validateur sur vps1 (`greffe-bauges.service`, données `/root/.greffe-bauges`, port 7421,
-`--ui --put-token`), relais sur mikavm3 (port 7421). Genèse dans `greffe/genesis.json`. Toute
-association du territoire peut rejoindre la fédération comme membre (`greffe grant member <pub>`).
+Validateur sur vps1 (`greffe-bauges.service`, données `/root/.greffe-bauges`, port 7421,
+`--ui --put-token --base-path /registre`, route Traefik `enbauges.fr/registre`), second validateur sur
+mikavm3 (port 7421, aussi relais). Genèse dans `greffe/genesis.json`. Honnêteté : les deux clés sont
+aujourd'hui tenues par l'équipe d'enbauges ; la garantie devient complète quand une association du
+territoire tient la seconde clé sur sa machine (`greffe grant validator <pub>`).
 
-## Registre de test
+## Suite de vérification et registre réel
 
-`bkn/verify.sh` joue le cycle complet (proposition → publication → registre → statut) sur le bkn
-vivant. Pour que le registre réel n'accumule pas d'objets de test, les actions admin de la suite
-portent `"register":"test"` et le hook les inscrit sur une fédération séparée
-(`coeur-des-bauges-test`, nœud sur vps1 port 7422, réglages kv `materiautheque.register_test_*`).
-Les trois « Tuiles terre cuite (verify) » présents dans le registre réel datent d'avant cette
-séparation ; un registre n'oublie pas, ils y restent, retirés.
+`bkn/verify.sh` joue le cycle complet (proposition → publication → modération → statut) sur le bkn
+vivant. Ses actions admin portent `"register":"skip"` : le hook répond `{skipped}` et n'écrit rien
+au registre réel, qui n'oublie pas. Les trois « Tuiles terre cuite (verify) » présents dans le
+registre datent d'avant cette règle ; ils y restent, retirés, et l'onglet Registre masque les objets
+retirés par défaut.
 
 ## Décisions
 
